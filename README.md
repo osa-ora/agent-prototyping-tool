@@ -1,6 +1,9 @@
 # Agent Prototyping App
 
-**Version 1.0 Beta** — a local-first agent prototyping workspace built with Python, FastAPI, SQLite, HTML, CSS, and vanilla JavaScript.
+**Version 1.0 Beta** — a local agent prototyping workspace built with Python, FastAPI, SQLite, HTML, CSS, and vanilla JavaScript.
+
+<img width="1725" height="844" alt="Screenshot 2026-11-11 at 10 47 40 AM" src="https://github.com/user-attachments/assets/e10a21e0-1a22-475d-af16-a6ba7c8a6f1f" />
+
 
 ## Features
 
