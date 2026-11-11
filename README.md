@@ -51,6 +51,9 @@ Each Python MCP server receives its own virtual environment under `~/.agent-prot
 6. The Enabled checkbox only adds or removes that server’s tools from the agent tool catalog; the process remains in its current running/stopped state.
 7. Use **Try** beside a server to send its example usage into the chat immediately.
 
+<img width="816" height="783" alt="Screenshot 2026-11-11 at 10 48 45 AM" src="https://github.com/user-attachments/assets/39d151e9-8266-412e-a11a-375129e6fd45" />
+
+
 Examples of command/arguments combinations:
 
 - `python` with `server.py`
