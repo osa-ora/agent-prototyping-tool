@@ -1,35 +1,299 @@
 # Agent Prototyping App
 
-**Version 1.0 Beta** — a local agent prototyping workspace built with Python, FastAPI, SQLite, HTML, CSS, and vanilla JavaScript.
+A workspace for building, configuring, and experimenting with AI agents. It brings together LLM configuration, agent instructions, MCP tool integrations, multi-step agent execution, and conversation management in a single browser-based application.
 
-<img width="1725" height="844" alt="Screenshot 2026-11-11 at 10 47 40 AM" src="https://github.com/user-attachments/assets/e10a21e0-1a22-475d-af16-a6ba7c8a6f1f" />
+<img width="1726" height="866" alt="Screenshot 2026-11-26 at 8 53 50 AM" src="https://github.com/user-attachments/assets/3a35e629-cdb3-4663-9ddf-2ef293c89390" />
+
+Built with **Python, FastAPI, SQLite, HTML, CSS, and vanilla JavaScript**.
+
+## Core Capabilities
+
+- **Project-based workspace:** Organize work into projects, each containing independent chat sessions.
+- **Multiple LLM providers:** Use locally hosted Ollama models or external services supporting the OpenAI-compatible Chat Completions API.
+- **Agent configuration:** Customize system instructions, model parameters, reasoning options, and agent execution limits.
+- **Agent workflow:** Support planning, model-directed execution, tool invocation, and completion verification.
+- **MCP integrations:** Connect multiple Model Context Protocol servers and make their tools available to the agent.
+- **Tool discovery:** Inspect available MCP tools, descriptions, input parameters, required fields, and JSON schemas.
+- **Reusable instructions:** Manage prompts and import local skills to extend the agent's knowledge and behavior.
+- **Execution visibility:** Inspect model interactions, tool calls, results, token usage, and execution timing.
+- **Local persistence:** Store application configuration, projects, conversations, and MCP server definitions locally.
+- **Customizable interface:** Switch between dark and light themes.
+
+## Workspace
+
+The application provides a three-panel workspace:
+
+- **Projects and conversations:** Create and organize projects, start new conversations, and manage existing sessions.
+- **Chat workspace:** Interact with the configured agent, review responses, and inspect execution details.
+- **Configuration panel:** Manage the active model, generation parameters, agent settings, prompts, skills, and MCP servers.
+
+Conversations are maintained independently, allowing different tasks and experiments to be organized without mixing their histories.
+
+## LLM Providers and Models
+
+The application supports two provider categories.
+
+### Ollama
+
+Connect to a local Ollama service and use models installed on that service.
+
+- Configure the Ollama base URL.
+- Discover and select installed models.
+- Monitor Ollama service availability.
+- Start or stop the local Ollama service through the application when supported by the environment.
+- Enable model reasoning for models that expose thinking output.
+
+### OpenAI-Compatible Providers
+
+Connect to external or self-hosted services exposing an OpenAI-compatible Chat Completions endpoint.
+
+Configure the service endpoint, model name, and API credentials.
+
+### Model Parameters
+
+Configure the generation parameters exposed by the selected provider, including:
+
+- Temperature
+- Top P
+- Top K
+- Context length
+- Repeat penalty
+- Maximum output tokens
+
+<img width="376" height="370" alt="Screenshot 2026-11-26 at 8 54 42 AM" src="https://github.com/user-attachments/assets/c0d26e8a-88d3-416e-864e-7315e8df94a2" />
 
 
-## Features
+The application also supports conversation-history limits, allowing the agent to use all previous messages or a selected number of recent messages as context.
 
-- Project-based chat sessions with rename and delete actions.
-- Ollama and external OpenAI-compatible chat-completions models.
-- Editable system prompt and model parameters.
-- Markdown `skills.md` files loaded as agent instructions.
-- MCP servers launched as child processes using stdio transport.
-- MCP server lifecycle is controlled explicitly with Start and Stop. The Enabled checkbox only controls whether the agent may use that server’s tools; it never starts or stops the process.
-- MCP tools can be inspected with their descriptions and input schemas; individual servers can be started, stopped, enabled, disabled, or deleted.
-- Optional example usage per MCP server. Its **Try** control sends the example directly into the current chat.
-- Tool calls are shown in expandable conversation entries with arguments, status, and results.
-- Optional model reasoning display, when the selected model/provider exposes reasoning output (including Ollama thinking models).
-- Dark and light themes, About dialog, and graceful application shutdown.
-- SQLite persistence under `~/.agent-prototyping-app/` by default.
+Model reasoning can be enabled separately. Its availability and output depend on the selected model and provider.
 
-## Run
+## Agent Architecture
 
-Python 3.11+ is required. On macOS/Linux:
+The application provides a generic, model-driven agent workflow. Rather than implementing fixed business processes or hardcoded tool sequences, it allows the model to determine how a task should be approached and executed.
+
+When the agent architecture is enabled, a run can involve three main stages.
+
+### 1. Planning
+
+The model analyzes the user's request and produces a task plan containing objectives, acceptance criteria, and dependencies.
+
+The plan provides a structured representation of the requested task and a basis for subsequent execution and verification.
+
+### 2. Execution
+
+The model performs the task using its available capabilities.
+
+It can:
+
+- Generate a direct response when no external action is needed.
+- Select and invoke available MCP tools.
+- Issue multiple tool calls in the same model response.
+- Examine tool results and determine whether additional actions are required.
+- Continue execution until it has sufficient information to produce a candidate answer.
+
+The model controls tool selection, arguments, ordering, and subsequent actions. The application executes native structured tool calls and returns their results to the model.
+
+Tool arguments are validated against the input schemas advertised by the corresponding MCP servers. Ordinary assistant text containing JSON or proposed tool invocations is not interpreted as an executable tool call.
+
+### 3. Verification
+
+The model evaluates the candidate result against the original request, task objectives, execution history, and available evidence.
+
+Verification checks whether the required objectives have been satisfied and whether the result is adequately supported.
+
+If required work remains incomplete, feedback is returned to the execution stage so the model can continue working.
+
+The application enforces bounded verification attempts and does not treat an invalid or unsupported verification response as successful completion.
+
+Planning and verification can be enabled or disabled through Agent Settings.
+
+## Agent Settings and Execution Limits
+
+The Agent Settings panel exposes the controls that govern the agent's execution architecture and resource limits.
+
+Available settings include:
+
+| Setting | Default |
+|---|---:|
+| Planning and verification | Enabled |
+| Maximum total LLM calls per run | 30 |
+| Maximum execution iterations | 12 |
+| Maximum native tool calls | 20 |
+| Maximum planning attempts | 2 |
+| Maximum verification cycles | 2 |
+| Maximum verifier attempts per run | 4 |
+| Maximum verifier attempts per cycle | 2 |
+| Maximum consecutive tool errors | 4 |
+
+These limits are enforced by the application across the complete agent run. They prevent uncontrolled execution loops and bound the number of model and tool invocations.
+
+<img width="388" height="573" alt="Screenshot 2026-11-26 at 8 55 36 AM" src="https://github.com/user-attachments/assets/3eedfdf0-9e3b-4608-823d-fbe936b9844b" />
+
+Settings are validated and persisted locally. Changes apply to subsequent agent runs.
+
+## Prompts and Skills
+
+The application supports reusable instructions that can be selected for individual conversations.
+
+### Prompt Library
+
+Manage custom prompts through the application:
+
+- Create prompts.
+- Edit existing prompts.
+- Enable or disable prompts.
+- Delete prompts.
+- Select the prompts to use in a conversation.
+
+Custom prompts are opt-in and are not automatically selected when created.
+
+<img width="389" height="732" alt="Screenshot 2026-11-26 at 8 56 18 AM" src="https://github.com/user-attachments/assets/11125fc4-1719-43f9-baf2-72cda04ea7aa" />
+
+The application's baseline system instruction is maintained separately from the prompt library.
+
+### Local Skills
+
+Import local skill directories to provide the agent with additional instructions and supporting resources.
+
+A skill directory can contain:
+
+- `SKILL.md` — the skill's primary instructions.
+- `references/` — supporting documentation.
+- `prompts/` — additional prompt resources.
+
+Skills can be selected for the relevant conversations, allowing different agent capabilities and instructions to be used for different tasks.
+
+## MCP Servers and Tools
+
+The application integrates with external capabilities through the **Model Context Protocol (MCP)**.
+
+Multiple MCP servers can be configured independently. Their advertised tools become available to the agent according to the server connection and enablement settings.
+
+### Supported Transports
+
+- **STDIO:** Communicate with a locally launched MCP server through standard input and output.
+- **Streamable HTTP:** Connect to an MCP server through its HTTP endpoint.
+- **Auto Detect:** Detect the transport from the server's startup information.
+
+Remote HTTP connections can use optional custom HTTP headers when authentication or other endpoint-specific configuration is required.
+
+### Server Configuration
+
+Each MCP server can be configured with:
+
+- Display name.
+- Launch command.
+- Command-line arguments.
+- Working directory.
+- Transport type.
+- HTTP endpoint.
+- Environment variables.
+- HTTP headers, where applicable.
+- Optional example usage prompt.
+
+The application supports both locally managed MCP processes and remote MCP endpoints.
+
+<img width="814" height="788" alt="Screenshot 2026-11-26 at 8 57 00 AM" src="https://github.com/user-attachments/assets/242744e1-1cb2-4e91-bcf6-4dbab6d3a315" />
+
+### Server Lifecycle and Availability
+
+MCP server process management and agent availability are independent controls.
+
+- **Start:** Launch a locally managed server and establish its MCP connection.
+- **Stop:** Stop the locally managed server process.
+- **Enable/Disable:** Control whether the server's tools are included in the agent's available tool catalog.
+
+Disabling a server does not automatically stop its process.
+
+### MCP Tools Catalog
+
+Each MCP server provides a Tools action that opens a dedicated dialog displaying its available tools.
+
+The catalog presents:
+
+- Tool names.
+- Tool descriptions.
+- Input parameters.
+- Required fields.
+- Expandable input JSON schemas.
+
+<img width="853" height="806" alt="Screenshot 2026-11-26 at 8 57 41 AM" src="https://github.com/user-attachments/assets/fc1b6196-a14c-40e5-8531-a25cbdd2b4e7" />
+
+
+The application discovers tools from connected servers and refreshes the available tool definitions before agent requests.
+
+### Example Usage
+
+An optional example prompt can be associated with an MCP server. Its Try action sends the example directly into the current conversation, providing a convenient way to experiment with the server's capabilities.
+
+### Python MCP Server Environments
+
+For locally launched Python MCP servers, the application can create an independent virtual environment for each server:
+
+`~/.agent-prototyping-app/mcp-venvs/<server-id>/`
+
+On startup, dependencies can be installed from the server project's `requirements.txt`, or the project can be installed in editable mode when `pyproject.toml` or `setup.py` is available.
+
+If the server imports `fastmcp` without declaring it in a dependency manifest, the application can install the package automatically.
+
+The working directory should point to the MCP project folder when using relative script paths.
+
+Command-line arguments are entered as ordinary terminal arguments, while environment variables use one `KEY=value` entry per line.
+
+## Execution Inspection and Monitoring
+
+The application provides visibility into the agent's execution process without requiring users to inspect backend logs.
+
+Each assistant turn can expose an expandable execution trace showing the sequence of model interactions and tool operations.
+
+Depending on provider capabilities, the trace can include:
+
+- Planning, execution, and verification stages.
+- Model requests and responses.
+- Selected MCP servers and exposed tool definitions.
+- Native structured tool calls and their arguments.
+- Tool execution status and returned results.
+- Token consumption.
+- Model and tool execution durations.
+- Ollama-specific generation and evaluation timing information.
+
+Model reasoning can also be displayed when enabled and supported by the selected provider.
+
+These inspection capabilities help users understand agent behavior, troubleshoot integrations, and evaluate how the agent approaches a task.
+
+## Local Storage and Data
+
+The application uses SQLite for persistent local storage.
+
+By default, application data is stored under:
+
+`~/.agent-prototyping-app/`
+
+This directory contains application settings, model configuration, credentials, projects, conversations, and MCP server configuration.
+
+The application is designed for local use and binds to `127.0.0.1` by default.
+
+API credentials and other sensitive configuration values are stored locally. Users should protect their application data directory and local operating-system account.
+
+## Running the Application
+
+### Requirements
+
+- Python 3.11 or later.
+- macOS or Linux.
+- Ollama or an OpenAI-compatible provider, depending on the models being used.
+- MCP servers for any external tools the agent needs.
+
+### Start
 
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-The launcher creates a project-local `.venv`, installs dependencies into it, starts the application, and opens the browser when ready.
+The launcher creates a project-local Python virtual environment, installs the required dependencies, starts the application, and opens the browser when ready.
+
+### Process Management
 
 ```bash
 ./run.sh start
@@ -37,81 +301,16 @@ The launcher creates a project-local `.venv`, installs dependencies into it, sta
 ./run.sh stop
 ```
 
-Default URL: <http://127.0.0.1:8750>
+### Default URL
 
-Each Python MCP server receives its own virtual environment under `~/.agent-prototyping-app/mcp-venvs/<server-id>/`. On first start, the app creates that environment and automatically installs dependencies from the server folder's `requirements.txt`, or installs an editable project from `pyproject.toml` / `setup.py`. If the source imports `fastmcp` and no manifest declares it, the app installs the `fastmcp` package automatically. The MCP log shows environment creation, pip output, and any dependency-installation errors. The application's own `.venv` is separate and is created by `run.sh` on first launch; it is intentionally not bundled in the ZIP. MCP command-line arguments and environment variables are optional plain-text fields. Enter arguments as you would in a terminal (for example, `server.py --port 8080`). Enter environment variables one per line in `KEY=value` format. Leave either field empty when it is not needed; no JSON editing is required.
+<http://127.0.0.1:8750>
 
-## Adding an MCP server
-
-1. Select **Add skill / MCP server** in the right panel, or open **Settings → Manage skills & MCP servers**.
-2. Select MCP server and enter a display name, launch command, optional working directory, and optional arguments.
-3. Optionally enter command-line arguments as ordinary text, environment variables one per line (`KEY=value`), and an example usage prompt. Both configuration fields may be left empty.
-4. Select **Add configuration**. The application saves the MCP configuration without starting the process.
-5. Use the separate **Start** control to launch the server, initialize the MCP session, and discover tools. Use **Stop** to stop the process.
-6. The Enabled checkbox only adds or removes that server’s tools from the agent tool catalog; the process remains in its current running/stopped state.
-7. Use **Try** beside a server to send its example usage into the chat immediately.
-
-<img width="816" height="783" alt="Screenshot 2026-11-11 at 10 48 45 AM" src="https://github.com/user-attachments/assets/39d151e9-8266-412e-a11a-375129e6fd45" />
-
-
-Examples of command/arguments combinations:
-
-- `python` with `server.py`
-- `node` with `./build/index.js`
-- `npx` with `-y @modelcontextprotocol/server-filesystem /path/to/folder`
-- `/absolute/path/to/executable` with `[]`
-
-The working directory should point to the MCP project folder when using a relative script name such as `python app.py`; this is also where the app looks for `requirements.txt`, `pyproject.toml`, or `setup.py`.
-
-## Notes
-
-- Model reasoning is opt-in from the right-hand Model Reasoning section. Ollama receives `think: true`; actual reasoning output depends on model support. OpenAI-compatible providers display reasoning only if the endpoint returns a reasoning field.
-- External models must expose an OpenAI-compatible `/chat/completions` endpoint.
-- API credentials are stored locally in the application's SQLite settings database. Protect the local user account and application data directory accordingly.
-- The app binds to `127.0.0.1` and is intended for local use.
-
+The application's virtual environment is created locally on first launch and is not included in the source package.
 
 ## Appearance
 
-The default appearance is dark graphite with blue gradient accents. Switch to the light theme from Settings if preferred.
+The application uses a dark graphite interface with blue accents by default. A light theme is also available through Settings.
 
+---
 
-### Ollama model selection and status
-- The active model can be selected from the right-side model panel or from Settings.
-- When Ollama is reachable, the app loads installed model names from `/api/tags`.
-- The app refreshes Ollama availability every three seconds so chat availability and the status indicator follow the live service state.
-- Start/Stop controls locate the Ollama executable on common macOS installation paths and verify the service state after sending a stop signal.
-
-
-## Version 1.1.0 updates
-
-- Dark workspace panels now use high-contrast blue surfaces and brighter text, including the left project/session list, chat messages/composer, and right-side agent prompt preview.
-- Ollama status is checked directly against the configured `/api/tags` endpoint with proxy bypass for local services. The selected model is available in both Settings and the right-side Active Model selector, and the selector is refreshed when Settings opens.
-- Ollama process inspection is more tolerant of macOS command-line quoting and restricted process visibility; the UI reports externally managed services without presenting a successful HTTP response as an API failure.
-- MCP servers that announce a Streamable HTTP endpoint (such as FastMCP `http://0.0.0.0:8060/mcp`) are detected and connected over HTTP. The app now initializes the MCP session, discovers tools, invokes tools over HTTP, and keeps the live server process running. Existing stdio MCP servers continue to use stdio.
-
-
-### v1.1.0 MCP behavior
-- Saving an MCP configuration closes the dialog immediately and starts the server asynchronously in the background.
-- FastMCP Streamable HTTP startup detection waits for the advertised endpoint, retries initialization, and disables inherited HTTP proxy settings for local MCP requests.
-- A live HTTP MCP process is not terminated solely because its initial handshake fails; inspect Server logs or retry tool discovery.
-
-## MCP transport configuration (v1.1.0)
-
-Each MCP server can be configured independently with one of three transports:
-
-- **Auto detect**: retain automatic transport detection from server startup output.
-- **STDIO**: use the MCP JSON-RPC stdio protocol.
-- **Streamable HTTP**: connect directly to the configured MCP endpoint URL (for example `http://127.0.0.1:8000/mcp`). The URL is an example only; configure the actual endpoint exposed by your server.
-
-Transport and endpoint are saved per MCP server in the local SQLite configuration. They are not hardcoded to a particular server, hostname, port, or HR MCP implementation. Editing a server applies its changes and starts/reconnects it in the background so the dialog closes without waiting for dependency installation or protocol initialization.
-
-
-### 1.1.5
-- Replaced browser confirmation for conversation and project deletion with themed in-app confirmation dialogs.
-- Moved new-conversation creation to a plus action beside each project name.
-- Added independent expand/collapse controls for dynamically rendered projects.
-
-
-### 1.1.6
-- Refined project action icons: consistent sizing, alignment, hover/focus feedback, and a clean SVG plus icon.
+**Agent Prototyping App — Version 1.5.9**
